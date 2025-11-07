@@ -25,6 +25,9 @@ let fruitTypes = [
   { key: "medium", radius: 35, color: 0x55ff55 },
   { key: "large", radius: 50, color: 0x5599ff },
 ];
+
+let currentFruitType = null;
+let nextFruitType = null;
 function preload() {}
 
 function create() {
@@ -41,9 +44,57 @@ function create() {
   this.matter.add.rectangle(0, 360, 50, 720, { isStatic: true });
   this.matter.add.rectangle(480, 360, 50, 720, { isStatic: true });
 
+  //start game
+  currentFruitType = Phaser.Math.RND.pick(fruitTypes);
+  nextFruitType = Phaser.Math.RND.pick(fruitTypes);
+
+  // player
+  this.preview = this.add.circle(
+    240,
+    80,
+    currentFruitType.radius,
+    currentFruitType.color
+  );
+  this.preview.setDepth(10);
+
+  // next fruit
+  this.nextPreview = this.add.circle(
+    430,
+    70,
+    nextFruitType.radius,
+    nextFruitType.color
+  );
+  this.nextPreview.setAlpha(0.8);
+
+  this.input.on("pointermove", (p) => {
+    this.preview.x = Phaser.Math.Clamp(p.x, 40, 440);
+  });
+
   //   spawnFruit.call(this, 240, 100);
   this.input.on("pointerdown", (p) => {
-    spawnFruit.call(this, p.x, 100);
+    if(this.gameOver) return;
+
+    // spawn fruit thật từ vị trí người chơi
+    spawnFruit.call(this, this.preview.x, this.preview.y, currentFruitType);
+
+
+    // chuyển next -> current
+    currentFruitType = nextFruitType;
+    nextFruitType = Phaser.Math.RND.pick(fruitTypes);
+
+    this.preview.setRadius(currentFruitType.radius);
+    this.preview.setFillStyle(currentFruitType.color);
+
+
+    this.nextPreview.destroy();
+    this.nextPreview = this.add.circle(
+      430,
+      70,
+      nextFruitType.radius,
+      nextFruitType.color
+    );
+    this.nextPreview.setAlpha(0.8);
+
   });
 
   this.matter.world.on("collisionstart", (event) => {
@@ -69,8 +120,7 @@ function create() {
 }
 
 // spawns a fruit at (x, y)
-function spawnFruit(x, y, type = null) {
-  type = type || Phaser.Math.RND.pick(fruitTypes);
+function spawnFruit(x, y, type) {
   const circle = this.add.circle(x, y, type.radius, type.color);
   this.matter.add.gameObject(circle, {
     shape: { type: "circle", radius: type.radius },
@@ -137,22 +187,6 @@ function mergeFruits(fruitA, fruitB) {
       this.cameras.main.shake(80, 0.002);
     },
   });
-}
-
-// kiểm tra xem có không gian trống để spawn quả mới không
-function isSpaceFree(scene, x, y, radius) {
-  const bodies = scene.matter.world.localWorld.bodies;
-  for (let body of bodies) {
-    if (!body.isStatic && body.position) {
-      const dx = body.position.x - x;
-      const dy = body.position.y - y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < (body.circleRadius || 0) + radius + 2) {
-        return false; // còn chồng nhau
-      }
-    }
-  }
-  return true;
 }
 
 // xử lý khi trò chơi kết thúc

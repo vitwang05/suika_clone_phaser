@@ -5,6 +5,7 @@ import {
   ANIMATION_DURATIONS,
   DROP_COOLDOWN_MS,
   SCORE_VALUES,
+  POWER_UP_POSITIONS,
 } from "../config/constants.js";
 import { fruitTypes } from "../data/fruitTypes.js";
 import { spawnFruit } from "../utils/fruitUtils.js";
@@ -12,6 +13,7 @@ import {
   handleTopSensorCollision,
   handleFruitCollision,
 } from "../utils/collisionUtils.js";
+import { createAllPowerUpSlots } from "../utils/powerUpUtils.js";
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -34,6 +36,7 @@ export class GameScene extends Phaser.Scene {
     this.createTopSensor();
     this.initializeFruits();
     this.createPreviews();
+    this.createPowerUpSlots();
     this.initializeUI();
     this.setupInputHandlers();
     this.setupCollisionHandlers();
@@ -94,6 +97,19 @@ export class GameScene extends Phaser.Scene {
       this.nextFruitType.color
     );
     this.nextPreview.setAlpha(0.8);
+  }
+
+  createPowerUpSlots() {
+    const { SLOT_1, SLOT_2, SLOT_3 } = POWER_UP_POSITIONS;
+    const positions = [SLOT_1, SLOT_2, SLOT_3];
+    
+    // Tạo 3 ô vật phẩm hỗ trợ
+    this.powerUpSlots = createAllPowerUpSlots(this, positions);
+    
+    // Đặt depth để đảm bảo hiển thị trên các layer khác
+    this.powerUpSlots.forEach((slot) => {
+      slot.setDepth(15);
+    });
   }
   getPreviewClampRange(radius) {
     return {

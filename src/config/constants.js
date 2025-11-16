@@ -15,6 +15,15 @@ export const PREVIEW_POSITIONS = {
   PREVIEW_MAX_X: 695,
 };
 
+// Vị trí các ô vật phẩm hỗ trợ (3 ô xếp ngang bên dưới hộp)
+export const POWER_UP_POSITIONS = {
+  SLOT_1: { x: 180, y: 1200 }, // Ô bên trái
+  SLOT_2: { x: 360, y: 1200 }, // Ô giữa
+  SLOT_3: { x: 540, y: 1200 }, // Ô bên phải
+  SLOT_SPACING: 180, // Khoảng cách giữa các ô
+  SLOT_Y: 1200, // Vị trí Y chung cho tất cả các ô
+};
+
 export const PHYSICS_CONFIG = {
   RESTITUTION: 0.5,
   FRICTION: 0.1,

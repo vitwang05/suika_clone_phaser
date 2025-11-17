@@ -24,6 +24,12 @@ export const POWER_UP_POSITIONS = {
   SLOT_Y: 1200, // Vị trí Y chung cho tất cả các ô
 };
 
+export const POWER_UP_DEFAULT_COUNTS = {
+  powerup1: 2,
+  powerup2: 1,
+  powerup3: 0,
+};
+
 export const PHYSICS_CONFIG = {
   RESTITUTION: 0.5,
   FRICTION: 0.1,
@@ -53,5 +59,11 @@ export const DROP_COOLDOWN_MS = 1800; // 1.8s (có thể chỉnh 1500-2000ms)
 export const SCORE_VALUES = {
   DROP: 10,
   MERGE: 50,
+};
+
+// Power-up Config
+export const POWER_UP_CONFIG = {
+  DELETE_RADIUS: 100, // Bán kính vòng tròn xóa của vật phẩm thứ nhất
+  MAX_UPGRADE_LEVEL: 3, // Level tối đa có thể upgrade (0-based index, 2 = level 3)
 };
 

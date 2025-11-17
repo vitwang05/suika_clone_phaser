@@ -6,6 +6,8 @@ import {
   DROP_COOLDOWN_MS,
   SCORE_VALUES,
   POWER_UP_POSITIONS,
+  POWER_UP_CONFIG,
+  POWER_UP_DEFAULT_COUNTS,
 } from "../config/constants.js";
 import { fruitTypes } from "../data/fruitTypes.js";
 import { spawnFruit } from "../utils/fruitUtils.js";
@@ -29,6 +31,11 @@ export class GameScene extends Phaser.Scene {
     this.nextFruitType = null;
     this.canCheckGameOver = true; // cho phép check top sensor
     this.isDropCooldown = false; // ngăn thả liên tục trong thời gian chờ
+    this.isUsingPowerUp = false; // đang sử dụng vật phẩm hỗ trợ
+    this.isSelectingFruitForUpgrade = false; // đang chọn fruit để upgrade
+    this.powerUpInventory = { ...POWER_UP_DEFAULT_COUNTS };
+    this.powerUpSlotMap = {};
+    this.activePowerUpKey = null;
     this.score = 0;
     this.currentDropCombo = 0;
 
@@ -49,7 +56,7 @@ export class GameScene extends Phaser.Scene {
     const { WIDTH, HEIGHT, CENTER_X, CENTER_Y } = GAME_CONFIG;
 
     // Ground
-    this.matter.add.rectangle(CENTER_X, HEIGHT, WIDTH, 50, { isStatic: true });
+    this.matter.add.rectangle(CENTER_X, HEIGHT - 150, WIDTH, 50, { isStatic: true });
 
     // Left wall
     this.matter.add.rectangle(0, CENTER_Y, 50, HEIGHT, { isStatic: true });
@@ -73,8 +80,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   initializeFruits() {
-    this.currentFruitType = Phaser.Math.RND.pick(fruitTypes);
-    this.nextFruitType = Phaser.Math.RND.pick(fruitTypes);
+    const randomIndexFirst = Phaser.Math.Between(0, POWER_UP_CONFIG.MAX_UPGRADE_LEVEL);
+    this.currentFruitType = fruitTypes[randomIndexFirst];
+    const randomIndex = Phaser.Math.Between(0, POWER_UP_CONFIG.MAX_UPGRADE_LEVEL);
+    this.nextFruitType = fruitTypes[randomIndex];
   }
 
   createPreviews() {
@@ -121,6 +130,9 @@ export class GameScene extends Phaser.Scene {
   setupInputHandlers() {
     // Move preview with mouse/touch
     this.input.on("pointermove", (pointer) => {
+      // Không cho phép di chuyển preview khi đang sử dụng vật phẩm
+      if (this.isUsingPowerUp) return;
+      if (this.isSelectingFruitForUpgrade) return;
       const { min, max } = this.getPreviewClampRange(
         this.currentFruitType.radius
       );
@@ -128,8 +140,9 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Spawn fruit on click
-    this.input.on("pointerdown", () => {
-      if (this.gameOver || this.isDropCooldown) return;
+    this.input.on("pointerdown", (pointer, currentlyOver) => {
+      if (this.isPointerOverBlockingUI(currentlyOver)) return;
+      if (this.gameOver || this.isDropCooldown || this.isUsingPowerUp) return;
 
       // Bắt đầu cooldown sau khi thả
       this.isDropCooldown = true;
@@ -155,10 +168,18 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  isPointerOverBlockingUI(currentlyOver) {
+    if (!currentlyOver || currentlyOver.length === 0) {
+      return false;
+    }
+    return currentlyOver.some((gameObject) => gameObject?.isUIBlocking);
+  }
+
   updateFruitPreviews() {
     // Switch next to current
     this.currentFruitType = this.nextFruitType;
-    this.nextFruitType = Phaser.Math.RND.pick(fruitTypes);
+    const randomIndex = Phaser.Math.Between(0, POWER_UP_CONFIG.MAX_UPGRADE_LEVEL);
+    this.nextFruitType = fruitTypes[randomIndex];
 
     // Update current preview
     this.preview.setRadius(this.currentFruitType.radius);

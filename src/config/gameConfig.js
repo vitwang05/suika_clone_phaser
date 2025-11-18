@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { GAME_CONFIG } from "./constants.js";
 import { GameScene } from "../scenes/GameScene.js";
+import { LeaderboardScene } from "../scenes/LeaderboardScene.js";
 
 export const createGameConfig = () => ({
   type: Phaser.AUTO,
@@ -21,6 +22,6 @@ export const createGameConfig = () => ({
       debug: true,
     },
   },
-  scene: GameScene,
+  scene: [GameScene, LeaderboardScene],
 });
 

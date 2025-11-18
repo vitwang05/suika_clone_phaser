@@ -10,12 +10,13 @@ import {
   POWER_UP_DEFAULT_COUNTS,
 } from "../config/constants.js";
 import { fruitTypes } from "../data/fruitTypes.js";
-import { spawnFruit } from "../utils/fruitUtils.js";
+import { spawnFruit, fruits } from "../utils/fruitUtils.js";
 import {
   handleTopSensorCollision,
   handleFruitCollision,
 } from "../utils/collisionUtils.js";
 import { createAllPowerUpSlots } from "../utils/powerUpUtils.js";
+import { leaderboardService } from "../services/leaderboardService.js";
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -67,9 +68,10 @@ export class GameScene extends Phaser.Scene {
 
   createTopSensor() {
     const { WIDTH } = GAME_CONFIG;
+    const sensorY = 150;
     this.topSensor = this.matter.add.rectangle(
       GAME_CONFIG.CENTER_X,
-      150,
+      sensorY,
       WIDTH,
       20,
       {
@@ -77,6 +79,7 @@ export class GameScene extends Phaser.Scene {
         isStatic: true,
       }
     );
+    this.topSensorY = sensorY;
   }
 
   initializeFruits() {
@@ -163,6 +166,7 @@ export class GameScene extends Phaser.Scene {
 
         this.updateFruitPreviews();
         this.preview.setVisible(true);
+        this.checkTopOverflow();
         // nextPreview được tạo lại trong updateFruitPreviews, mặc định visible
       });
     });
@@ -221,6 +225,51 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
     this.scoreText.setDepth(20);
+
+    // Leaderboard button
+    const leaderboardButton = this.add
+      .text(GAME_CONFIG.WIDTH - 100, 16, "🏆", {
+        fontSize: "32px",
+      })
+      .setOrigin(0, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    leaderboardButton.on("pointerdown", () => {
+      this.scene.launch("LeaderboardScene");
+    });
+
+    leaderboardButton.on("pointerover", () => {
+      leaderboardButton.setScale(1.2);
+    });
+
+    leaderboardButton.on("pointerout", () => {
+      leaderboardButton.setScale(1);
+    });
+
+    // Dev button: trigger game over manually
+    this.gameOverTestButton = this.add
+      .text(GAME_CONFIG.WIDTH - 100, 70, "☠", {
+        fontSize: "28px",
+        color: "#ff8888",
+      })
+      .setOrigin(0, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true });
+
+    this.gameOverTestButton.on("pointerdown", () => {
+      if (!this.gameOver) {
+        this.handleGameOver();
+      }
+    });
+
+    this.gameOverTestButton.on("pointerover", () => {
+      this.gameOverTestButton.setColor("#ffb3b3");
+    });
+
+    this.gameOverTestButton.on("pointerout", () => {
+      this.gameOverTestButton.setColor("#ff8888");
+    });
   }
 
   updateScoreText() {
@@ -241,8 +290,13 @@ export class GameScene extends Phaser.Scene {
     this.addScore(points);
   }
 
-  handleGameOver() {
+  async handleGameOver() {
     this.gameOver = true;
+
+    // Submit score to leaderboard
+    if (this.score > 0) {
+      await leaderboardService.submitScore(this.score);
+    }
 
     // Display game over text
     this.add
@@ -250,6 +304,19 @@ export class GameScene extends Phaser.Scene {
         fontSize: "48px",
         color: "#ff5555",
       })
+      .setOrigin(0.5);
+
+    // Display final score
+    this.add
+      .text(
+        GAME_CONFIG.CENTER_X,
+        GAME_CONFIG.CENTER_Y + 60,
+        `Final Score: ${this.score.toLocaleString()}`,
+        {
+          fontSize: "32px",
+          color: "#ffffff",
+        }
+      )
       .setOrigin(0.5);
 
     // Screen shake effect
@@ -262,5 +329,22 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(ANIMATION_DURATIONS.RESTART_DELAY, () => {
       this.scene.restart();
     });
+  }
+
+  checkTopOverflow() {
+    if (!this.canCheckGameOver || this.gameOver) return;
+    const threshold =
+      this.topSensor?.position?.y || this.topSensorY || PREVIEW_POSITIONS.CURRENT.y;
+
+    const hasOverflow = fruits.some(
+      (fruit) =>
+        fruit?.active &&
+        fruit.fruitType &&
+        fruit.y - (fruit.fruitType.radius || 0) <= threshold
+    );
+
+    if (hasOverflow) {
+      this.handleGameOver();
+    }
   }
 }

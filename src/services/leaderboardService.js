@@ -26,7 +26,7 @@ class LeaderboardService {
     return id;
   }
 
-  /**
+  /**   
    * Khởi tạo PlayFab SDK
    */
   async initialize() {

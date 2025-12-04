@@ -17,6 +17,7 @@ import {
 } from "../utils/collisionUtils.js";
 import { createAllPowerUpSlots } from "../utils/powerUpUtils.js";
 import { leaderboardService } from "../services/leaderboardService.js";
+import { GameStateController, GameState } from "../utils/gameStateController.js";
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -40,14 +41,25 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.currentDropCombo = 0;
 
+    // Khởi tạo Game State Controller
+    this.stateController = new GameStateController(this);
+
     this.createBoundaries();
     this.createTopSensor();
     this.initializeFruits();
     this.createPreviews();
     this.createPowerUpSlots();
     this.initializeUI();
+    this.createTapToPlayButton();
     this.setupInputHandlers();
     this.setupCollisionHandlers();
+    
+    // Đăng ký tất cả components với state controller
+    this.registerComponentsWithStateController();
+    
+    // Bắt đầu ở trạng thái MENU
+    this.stateController.setState(GameState.MENU);
+    console.log(this.stateController.getState());
   }
 
   update() {}
@@ -133,6 +145,8 @@ export class GameScene extends Phaser.Scene {
   setupInputHandlers() {
     // Move preview with mouse/touch
     this.input.on("pointermove", (pointer) => {
+      // Chỉ cho phép di chuyển khi đang chơi
+      if (!this.stateController.isState(GameState.PLAYING)) return;
       // Không cho phép di chuyển preview khi đang sử dụng vật phẩm
       if (this.isUsingPowerUp) return;
       if (this.isSelectingFruitForUpgrade) return;
@@ -145,6 +159,7 @@ export class GameScene extends Phaser.Scene {
     // Spawn fruit on click
     this.input.on("pointerdown", (pointer, currentlyOver) => {
       if (this.isPointerOverBlockingUI(currentlyOver)) return;
+      if (!this.stateController.isState(GameState.PLAYING)) return;
       if (this.gameOver || this.isDropCooldown || this.isUsingPowerUp) return;
 
       // Bắt đầu cooldown sau khi thả
@@ -227,7 +242,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreText.setDepth(20);
 
     // Leaderboard button
-    const leaderboardButton = this.add
+    this.leaderboardButton = this.add
       .text(GAME_CONFIG.WIDTH - 100, 16, "🏆", {
         fontSize: "32px",
       })
@@ -235,16 +250,16 @@ export class GameScene extends Phaser.Scene {
       .setDepth(20)
       .setInteractive({ useHandCursor: true });
 
-    leaderboardButton.on("pointerdown", () => {
+    this.leaderboardButton.on("pointerdown", () => {
       this.scene.launch("LeaderboardScene");
     });
 
-    leaderboardButton.on("pointerover", () => {
-      leaderboardButton.setScale(1.2);
+    this.leaderboardButton.on("pointerover", () => {
+      this.leaderboardButton.setScale(1.2);
     });
 
-    leaderboardButton.on("pointerout", () => {
-      leaderboardButton.setScale(1);
+    this.leaderboardButton.on("pointerout", () => {
+      this.leaderboardButton.setScale(1);
     });
 
     // Dev button: trigger game over manually
@@ -258,7 +273,7 @@ export class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     this.gameOverTestButton.on("pointerdown", () => {
-      if (!this.gameOver) {
+      if (!this.gameOver && this.stateController.isState(GameState.PLAYING)) {
         this.handleGameOver();
       }
     });
@@ -270,6 +285,76 @@ export class GameScene extends Phaser.Scene {
     this.gameOverTestButton.on("pointerout", () => {
       this.gameOverTestButton.setColor("#ff8888");
     });
+  }
+
+  /**
+   * Tạo nút "Tap to Play" nhấp nháy
+   */
+  createTapToPlayButton() {
+    const { CENTER_X, CENTER_Y } = GAME_CONFIG;
+    
+    // Tạo text "Tap to Play"
+    this.tapToPlayButton = this.add
+      .text(CENTER_X, CENTER_Y, "Tap to Play", {
+        fontSize: "48px",
+        color: "#ffffff",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(30)
+      .setInteractive({ useHandCursor: true });
+
+    // Xử lý click vào nút
+    this.tapToPlayButton.on("pointerdown", () => {
+      if (this.stateController.isState(GameState.MENU)) {
+        this.startGame();
+      }
+    });
+
+    // Hiệu ứng nhấp nháy (blink)
+    this.tweens.add({
+      targets: this.tapToPlayButton,
+      alpha: { from: 1, to: 0.3 },
+      duration: 800,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Hiệu ứng scale nhẹ
+    this.tweens.add({
+      targets: this.tapToPlayButton,
+      scale: { from: 1, to: 1.1 },
+      duration: 1000,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /**
+   * Đăng ký tất cả components với state controller
+   */
+  registerComponentsWithStateController() {
+    this.stateController.registerComponents({
+      tapToPlayButton: this.tapToPlayButton,
+      scoreText: this.scoreText,
+      leaderboardButton: this.leaderboardButton,
+      gameOverTestButton: this.gameOverTestButton,
+      preview: this.preview,
+      nextPreview: this.nextPreview,
+      powerUpSlots: this.powerUpSlots,
+      matterWorld: this.matter.world,
+    });
+  }
+
+  /**
+   * Bắt đầu game
+   */
+  startGame() {
+    this.stateController.setState(GameState.PLAYING);
   }
 
   updateScoreText() {
@@ -292,6 +377,9 @@ export class GameScene extends Phaser.Scene {
 
   async handleGameOver() {
     this.gameOver = true;
+    
+    // Chuyển sang trạng thái GAME_OVER
+    this.stateController.setState(GameState.GAME_OVER);
 
     // Submit score to leaderboard
     if (this.score > 0) {
@@ -321,9 +409,6 @@ export class GameScene extends Phaser.Scene {
 
     // Screen shake effect
     this.cameras.main.shake(ANIMATION_DURATIONS.SCREEN_SHAKE_GAMEOVER, 0.01);
-
-    // Pause physics
-    this.matter.world.pause();
 
     // Restart after delay
     this.time.delayedCall(ANIMATION_DURATIONS.RESTART_DELAY, () => {
